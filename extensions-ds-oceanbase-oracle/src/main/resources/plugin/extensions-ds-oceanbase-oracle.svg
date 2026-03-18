@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+  <rect width="128" height="128" rx="24" fill="#1A56DB"/>
+  <circle cx="64" cy="44" r="20" fill="#93C5FD"/>
+  <path d="M28 92C28 76.536 40.536 64 56 64H72C87.464 64 100 76.536 100 92V100H28V92Z" fill="#DBEAFE"/>
+  <text x="64" y="116" text-anchor="middle" font-size="14" fill="white" font-family="Arial, sans-serif">OB-ORA</text>
+</svg>
