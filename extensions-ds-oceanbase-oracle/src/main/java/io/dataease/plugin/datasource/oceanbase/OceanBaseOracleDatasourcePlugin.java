@@ -21,6 +21,7 @@ public class OceanBaseOracleDatasourcePlugin extends DataEaseDatasourcePlugin {
     @Override
     public List<String> getSchema(DatasourceRequest datasourceRequest) {
         try (ConnectionObj connectionObj = getConnection(datasourceRequest.getDatasource())) {
+            assertConnection(connectionObj);
             List<String> schemas = new ArrayList<>();
             DatabaseMetaData metaData = connectionObj.getConnection().getMetaData();
             try (ResultSet rs = metaData.getSchemas()) {
@@ -42,6 +43,7 @@ public class OceanBaseOracleDatasourcePlugin extends DataEaseDatasourcePlugin {
     @Override
     public List<DatasetTableDTO> getTables(DatasourceRequest datasourceRequest) {
         try (ConnectionObj connectionObj = getConnection(datasourceRequest.getDatasource())) {
+            assertConnection(connectionObj);
             List<DatasetTableDTO> tables = new ArrayList<>();
             Configuration cfg = parseConfig(datasourceRequest.getDatasource());
             String schemaPattern = StringUtils.defaultIfBlank(cfg.getSchema(), cfg.getUsername());
@@ -78,6 +80,9 @@ public class OceanBaseOracleDatasourcePlugin extends DataEaseDatasourcePlugin {
         Class.forName(driver);
 
         Connection connection = DriverManager.getConnection(jdbcUrl, username, password);
+        if (connection == null) {
+            DEException.throwException("创建数据库连接失败：返回空连接对象");
+        }
         connectionObj.setConnection(connection);
         connectionObj.setConfiguration(cfg);
         return connectionObj;
@@ -102,6 +107,7 @@ public class OceanBaseOracleDatasourcePlugin extends DataEaseDatasourcePlugin {
         List<TableField> fields = new ArrayList<>();
 
         try (ConnectionObj connectionObj = getConnection(datasourceRequest.getDatasource())) {
+            assertConnection(connectionObj);
             Integer queryTimeout = connectionObj.getConfiguration() == null ? null : connectionObj.getConfiguration().getQueryTimeout();
             int finalTimeout = queryTimeout == null || queryTimeout <= 0 ? 30 : queryTimeout;
 
@@ -152,6 +158,7 @@ public class OceanBaseOracleDatasourcePlugin extends DataEaseDatasourcePlugin {
         }
 
         try (ConnectionObj connectionObj = getConnection(datasourceRequest.getDatasource())) {
+            assertConnection(connectionObj);
             Configuration cfg = parseConfig(datasourceRequest.getDatasource());
             String schemaPattern = normalizeSchema(StringUtils.defaultIfBlank(cfg.getSchema(), cfg.getUsername()));
 
@@ -265,5 +272,11 @@ public class OceanBaseOracleDatasourcePlugin extends DataEaseDatasourcePlugin {
             return null;
         }
         return schema.toUpperCase(Locale.ROOT);
+    }
+
+    private void assertConnection(ConnectionObj connectionObj) {
+        if (connectionObj == null || connectionObj.getConnection() == null) {
+            DEException.throwException("数据库连接为空，请检查驱动、连接串和账号密码配置");
+        }
     }
 }

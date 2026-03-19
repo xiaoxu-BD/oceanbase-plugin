@@ -52,7 +52,8 @@
       }
 
       const initForm = type => {
-        props.form.type = type || props.form.type || 'oceanbaseOracle'
+        const dsType = typeof type === 'string' && type.length > 1 ? type : 'oceanbaseOracle'
+        props.form.type = dsType || props.form.type || 'oceanbaseOracle'
         ensureCfg()
       }
 
@@ -64,10 +65,36 @@
 
       const submitForm = payload => {
         emit('submitForm', payload)
-        return cb => cb(true)
+        return true
+      }
+
+      const invokeMethod = param => {
+        if (!param || !param.methodName) {
+          return
+        }
+        const methodName = param.methodName
+        const args = param.args
+        const methodMap = {
+          initForm,
+          clearForm,
+          resetForm,
+          submitForm
+        }
+        const fn = methodMap[methodName]
+        if (!fn) {
+          return
+        }
+        if (Array.isArray(args)) {
+          return fn(...args)
+        }
+        if (args === undefined) {
+          return fn()
+        }
+        return fn(args)
       }
 
       expose({
+        invokeMethod,
         initForm,
         clearForm,
         resetForm,
