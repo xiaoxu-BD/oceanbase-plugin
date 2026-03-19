@@ -6,7 +6,19 @@
 
 - `extensions-ds-oceanbase-oracle`：后端（本目录）
 - `extensions-ds-oceanbase-oracle-frontend`：前端开发态
-- `extensions-ds-oceanbase-oracle-frontend-package`：前端打包态
+- `extensions-ds-oceanbase-oracle-frontend-package`：前端打包态（产物会打进后端 jar）
+
+## 如何把前端一起打进同一个 jar
+
+后端 `pom.xml` 已配置 `maven-resources-plugin`，在 `process-resources` 阶段自动把：
+
+`../extensions-ds-oceanbase-oracle-frontend-package/src/component/**`
+
+复制到后端 jar 的：
+
+`/component/**`
+
+所以最终只需要上传一个后端 jar，即可同时携带前端配置页面文件。
 
 ## 后端打包
 
@@ -16,7 +28,11 @@
 mvn clean package
 ```
 
-生成的 jar（例如 `oceanbase-oracle-backend-2.10.20.jar`）可在 DataEase 插件管理页面上传。
+打包后可用下面命令检查 jar 内是否包含前端文件：
+
+```bash
+jar tf target/oceanbase-oracle-backend-2.10.20.jar | grep 'component/index.vue'
+```
 
 ## 配置建议
 

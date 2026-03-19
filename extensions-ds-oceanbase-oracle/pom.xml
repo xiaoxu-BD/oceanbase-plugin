@@ -37,5 +37,35 @@
                 <filtering>false</filtering>
             </resource>
         </resources>
-    </build>
-</project>
+
+
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <version>3.3.1</version>
+                <executions>
+                    <execution>
+                        <id>copy-frontend-package-to-backend-jar</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.outputDirectory}/component</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>${project.basedir}/../extensions-ds-oceanbase-oracle-frontend-package/src/component</directory>
+                                    <includes>
+                                        <include>**/*</include>
+                                    </includes>
+                                    <filtering>false</filtering>
+                                </resource>
+                            </resources>
+                            <overwrite>true</overwrite>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build></project>
