@@ -1,0 +1,21 @@
+{
+  "name": "Apache Hive数据源插件",
+  "flag": "ds",
+  "developer": "fit2cloud",
+  "moduleName": "extensions-ds-hive",
+  "version": "v2.10.9",
+  "requireVersion": "v2.10.9",
+  "config": {
+    "driverPath": "/opt/dataease2.0/drivers/plugin/hiveDriver",
+    "name": "Apache Hive",
+    "category": "DL",
+    "extraParams": "",
+    "type": "hive",
+    "flag": 4,
+    "prefix": "`",
+    "suffix": "`",
+    "staticMap": {
+      "index": "ZXh0ZW5zaW9ucy1kcy1oaXZlL2NvbXBvbmVudC9pbmRleA=="
+    }
+  }
+}

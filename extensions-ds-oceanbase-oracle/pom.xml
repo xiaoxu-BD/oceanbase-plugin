@@ -16,19 +16,41 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <dataease.version>2.10.20</dataease.version>
     </properties>
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.jcraft</groupId>
+                <artifactId>jsch</artifactId>
+                <version>0.1.55</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
             <groupId>io.dataease</groupId>
             <artifactId>extensions-datasource</artifactId>
-            <version>${dataease.version}</version>
+            <version>2.10.20</version>
         </dependency>
         <dependency>
             <groupId>io.dataease</groupId>
             <artifactId>common</artifactId>
-            <version>${dataease.version}</version>
+            <version>2.10.20</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>javax.xml.bind</groupId>
+                    <artifactId>jaxb-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.glassfish.jaxb</groupId>
+                    <artifactId>jaxb-runtime</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
     </dependencies>
+
+
+
 
     <build>
         <resources>

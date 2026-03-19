@@ -94,7 +94,7 @@ public class OceanBaseOracleDatasourcePlugin extends DataEaseDatasourcePlugin {
                 fields.add(field);
             }
 
-            int maxRows = datasourceRequest.getPreviewData() ? 500 : 10_000;
+            int maxRows = 500; // 预览固定
             int count = 0;
             while (rs.next() && count < maxRows) {
                 Map<String, Object> row = new LinkedHashMap<>();
@@ -166,7 +166,7 @@ public class OceanBaseOracleDatasourcePlugin extends DataEaseDatasourcePlugin {
         Configuration cfg = JsonUtil.parseObject(datasourceDTO.getConfiguration(), io.dataease.extensions.datasource.vo.DatasourceConfiguration.class);
         if (cfg != null && StringUtils.isNotBlank(cfg.getPassword())) {
             cfg.setPassword("******");
-            datasourceDTO.setConfiguration(JsonUtil.toJSONString(cfg));
+            datasourceDTO.setConfiguration((String) JsonUtil.toJSONString(cfg));
         }
     }
 
