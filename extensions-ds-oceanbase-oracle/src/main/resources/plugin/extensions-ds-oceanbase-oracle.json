@@ -1,0 +1,21 @@
+{
+  "name": "OceanBase(Oracle兼容)数据源插件",
+  "flag": "ds",
+  "developer": "custom",
+  "moduleName": "extensions-ds-oceanbase-oracle",
+  "version": "v2.10.20",
+  "requireVersion": "v2.10.20",
+  "config": {
+    "driverPath": "/opt/dataease2.0/drivers/plugin/oceanbaseOracleDriver",
+    "name": "OceanBase(Oracle)",
+    "category": "OLTP",
+    "extraParams": "",
+    "type": "oceanbaseOracle",
+    "flag": 31,
+    "prefix": "\"",
+    "suffix": "\"",
+    "staticMap": {
+      "index": "ZXh0ZW5zaW9ucy1kcy1vY2VhbmJhc2Utb3JhY2xlL2NvbXBvbmVudC9pbmRleA=="
+    }
+  }
+}
