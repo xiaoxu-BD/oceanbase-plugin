@@ -16,10 +16,34 @@ import java.util.*;
 public class OceanBaseOracleDatasourcePlugin extends DataEaseDatasourcePlugin {
 
     private static final String DEFAULT_DRIVER = "com.oceanbase.jdbc.Driver";
+    private static final int DEFAULT_PORT = 2881;
+
+    @Override
+    public List<String> getSchema(DatasourceRequest datasourceRequest) {
+        try (ConnectionObj connectionObj = getConnection(datasourceRequest.getDatasource())) {
+            assertConnection(connectionObj);
+            List<String> schemas = new ArrayList<>();
+            DatabaseMetaData metaData = connectionObj.getConnection().getMetaData();
+            try (ResultSet rs = metaData.getSchemas()) {
+                while (rs.next()) {
+                    String schema = rs.getString("TABLE_SCHEM");
+                    if (StringUtils.isNotBlank(schema)) {
+                        schemas.add(schema);
+                    }
+                }
+            }
+            schemas.sort(String::compareToIgnoreCase);
+            return schemas;
+        } catch (Exception e) {
+            DEException.throwException("获取 schema 失败: " + e.getMessage());
+            return Collections.emptyList();
+        }
+    }
 
     @Override
     public List<DatasetTableDTO> getTables(DatasourceRequest datasourceRequest) {
         try (ConnectionObj connectionObj = getConnection(datasourceRequest.getDatasource())) {
+            assertConnection(connectionObj);
             List<DatasetTableDTO> tables = new ArrayList<>();
             Configuration cfg = parseConfig(datasourceRequest.getDatasource());
             String schemaPattern = StringUtils.defaultIfBlank(cfg.getSchema(), cfg.getUsername());
@@ -29,6 +53,7 @@ public class OceanBaseOracleDatasourcePlugin extends DataEaseDatasourcePlugin {
                     DatasetTableDTO dto = new DatasetTableDTO();
                     dto.setName(rs.getString("TABLE_NAME"));
                     dto.setTableName(rs.getString("TABLE_NAME"));
+                    dto.setRemarks(rs.getString("REMARKS"));
                     tables.add(dto);
                 }
             }
@@ -44,6 +69,9 @@ public class OceanBaseOracleDatasourcePlugin extends DataEaseDatasourcePlugin {
         io.dataease.extensions.datasource.vo.DatasourceConfiguration cfg = parseConfig(coreDatasource);
         cfg.convertJdbcUrl();
 
+        ConnectionObj connectionObj = new ConnectionObj();
+        startSshSession(cfg, connectionObj, coreDatasource.getId());
+
         String jdbcUrl = resolveJdbcUrl(cfg);
         String username = cfg.getUsername();
         String password = cfg.getPassword();
@@ -52,10 +80,12 @@ public class OceanBaseOracleDatasourcePlugin extends DataEaseDatasourcePlugin {
         Class.forName(driver);
 
         Connection connection = DriverManager.getConnection(jdbcUrl, username, password);
-        ConnectionObj obj = new ConnectionObj();
-        obj.setConnection(connection);
-        obj.setConfiguration(cfg);
-        return obj;
+        if (connection == null) {
+            DEException.throwException("创建数据库连接失败：返回空连接对象");
+        }
+        connectionObj.setConnection(connection);
+        connectionObj.setConfiguration(cfg);
+        return connectionObj;
     }
 
     @Override
@@ -76,33 +106,38 @@ public class OceanBaseOracleDatasourcePlugin extends DataEaseDatasourcePlugin {
         List<Map<String, Object>> rows = new ArrayList<>();
         List<TableField> fields = new ArrayList<>();
 
-        try (ConnectionObj connectionObj = getConnection(datasourceRequest.getDatasource());
-             Statement stmt = getStatement(connectionObj.getConnection(), 30);
-             ResultSet rs = stmt.executeQuery(sql)) {
+        try (ConnectionObj connectionObj = getConnection(datasourceRequest.getDatasource())) {
+            assertConnection(connectionObj);
+            Integer queryTimeout = connectionObj.getConfiguration() == null ? null : connectionObj.getConfiguration().getQueryTimeout();
+            int finalTimeout = queryTimeout == null || queryTimeout <= 0 ? 30 : queryTimeout;
 
-            ResultSetMetaData md = rs.getMetaData();
-            int colCount = md.getColumnCount();
+            try (Statement stmt = getStatement(connectionObj.getConnection(), finalTimeout);
+                 ResultSet rs = stmt.executeQuery(sql)) {
 
-            for (int i = 1; i <= colCount; i++) {
-                TableField field = new TableField();
-                field.setName(md.getColumnLabel(i));
-                field.setOriginName(md.getColumnName(i));
-                field.setType(md.getColumnTypeName(i));
-                field.setTypeNumber(md.getColumnType(i));
-                field.setPrecision(md.getPrecision(i));
-                field.setScale(md.getScale(i));
-                fields.add(field);
-            }
+                ResultSetMetaData md = rs.getMetaData();
+                int colCount = md.getColumnCount();
 
-            int maxRows = 500; // 预览固定
-            int count = 0;
-            while (rs.next() && count < maxRows) {
-                Map<String, Object> row = new LinkedHashMap<>();
                 for (int i = 1; i <= colCount; i++) {
-                    row.put(md.getColumnLabel(i), rs.getObject(i));
+                    TableField field = new TableField();
+                    field.setName(md.getColumnLabel(i));
+                    field.setOriginName(md.getColumnName(i));
+                    field.setType(md.getColumnTypeName(i));
+                    field.setTypeNumber(md.getColumnType(i));
+                    field.setPrecision(md.getPrecision(i));
+                    field.setScale(md.getScale(i));
+                    fields.add(field);
                 }
-                rows.add(row);
-                count++;
+
+                int maxRows = 500;
+                int count = 0;
+                while (rs.next() && count < maxRows) {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    for (int i = 1; i <= colCount; i++) {
+                        row.put(md.getColumnLabel(i), rs.getObject(i));
+                    }
+                    rows.add(row);
+                    count++;
+                }
             }
 
             result.put("fields", fields);
@@ -123,32 +158,26 @@ public class OceanBaseOracleDatasourcePlugin extends DataEaseDatasourcePlugin {
         }
 
         try (ConnectionObj connectionObj = getConnection(datasourceRequest.getDatasource())) {
+            assertConnection(connectionObj);
             Configuration cfg = parseConfig(datasourceRequest.getDatasource());
             String schemaPattern = normalizeSchema(StringUtils.defaultIfBlank(cfg.getSchema(), cfg.getUsername()));
 
             Set<String> pkSet = new HashSet<>();
             DatabaseMetaData metaData = connectionObj.getConnection().getMetaData();
-            try (ResultSet pkRs = metaData.getPrimaryKeys(null, schemaPattern, table.toUpperCase(Locale.ROOT))) {
+            String upperTable = table.toUpperCase(Locale.ROOT);
+            try (ResultSet pkRs = metaData.getPrimaryKeys(null, schemaPattern, upperTable)) {
                 while (pkRs.next()) {
                     pkSet.add(pkRs.getString("COLUMN_NAME"));
                 }
             }
 
             List<TableField> fields = new ArrayList<>();
-            try (ResultSet rs = metaData.getColumns(null, schemaPattern, table.toUpperCase(Locale.ROOT), "%")) {
-                while (rs.next()) {
-                    TableField field = new TableField();
-                    String columnName = rs.getString("COLUMN_NAME");
-                    field.setName(columnName);
-                    field.setOriginName(columnName);
-                    field.setType(rs.getString("TYPE_NAME"));
-                    field.setTypeNumber(rs.getInt("DATA_TYPE"));
-                    field.setSize(rs.getLong("COLUMN_SIZE"));
-                    field.setScale(rs.getInt("DECIMAL_DIGITS"));
-                    field.setPrimaryKey(pkSet.contains(columnName));
-                    field.setPrimary(pkSet.contains(columnName));
-                    field.setAutoIncrement("YES".equalsIgnoreCase(rs.getString("IS_AUTOINCREMENT")));
-                    fields.add(field);
+            try (ResultSet rs = metaData.getColumns(null, schemaPattern, upperTable, "%")) {
+                fillTableFields(rs, pkSet, fields);
+            }
+            if (fields.isEmpty()) {
+                try (ResultSet rs = metaData.getColumns(null, schemaPattern, table, "%")) {
+                    fillTableFields(rs, pkSet, fields);
                 }
             }
             return fields;
@@ -167,6 +196,24 @@ public class OceanBaseOracleDatasourcePlugin extends DataEaseDatasourcePlugin {
         if (cfg != null && StringUtils.isNotBlank(cfg.getPassword())) {
             cfg.setPassword("******");
             datasourceDTO.setConfiguration((String) JsonUtil.toJSONString(cfg));
+        }
+    }
+
+    private void fillTableFields(ResultSet rs, Set<String> pkSet, List<TableField> fields) throws SQLException {
+        while (rs.next()) {
+            TableField field = new TableField();
+            String columnName = rs.getString("COLUMN_NAME");
+            field.setName(columnName);
+            field.setOriginName(columnName);
+            field.setType(rs.getString("TYPE_NAME"));
+            field.setTypeNumber(rs.getInt("DATA_TYPE"));
+            field.setSize(rs.getLong("COLUMN_SIZE"));
+            field.setScale(rs.getInt("DECIMAL_DIGITS"));
+            field.setPrimaryKey(pkSet.contains(columnName));
+            field.setPrimary(pkSet.contains(columnName));
+            field.setAutoIncrement("YES".equalsIgnoreCase(rs.getString("IS_AUTOINCREMENT")));
+            field.setRemarks(rs.getString("REMARKS"));
+            fields.add(field);
         }
     }
 
@@ -192,10 +239,32 @@ public class OceanBaseOracleDatasourcePlugin extends DataEaseDatasourcePlugin {
             return cfg.getJdbc();
         }
 
-        String host = StringUtils.defaultIfBlank(cfg.getHost(), "127.0.0.1");
-        Integer port = cfg.getPort() == null ? 2881 : cfg.getPort();
+        String host = StringUtils.defaultIfBlank(cfg.getLHost(), "127.0.0.1");
+        Integer port = cfg.getLPort() == null ? DEFAULT_PORT : cfg.getLPort();
         String db = StringUtils.defaultIfBlank(cfg.getDataBase(), "test");
-        return String.format("jdbc:oceanbase://%s:%d/%s?compatibleMode=oracle", host, port, db);
+
+        String jdbcUrl = String.format("jdbc:oceanbase://%s:%d/%s", host, port, db);
+
+        String extraParams = cfg.getExtraParams();
+        if (StringUtils.isBlank(extraParams)) {
+            return jdbcUrl + "?compatibleMode=oracle";
+        }
+
+        String normalized = extraParams.trim();
+        if (normalized.startsWith("?")) {
+            normalized = normalized.substring(1);
+        }
+        if (normalized.startsWith("&")) {
+            normalized = normalized.substring(1);
+        }
+        if (StringUtils.isBlank(normalized)) {
+            return jdbcUrl + "?compatibleMode=oracle";
+        }
+
+        if (!StringUtils.containsIgnoreCase(normalized, "compatibleMode=")) {
+            normalized = "compatibleMode=oracle&" + normalized;
+        }
+        return jdbcUrl + "?" + normalized;
     }
 
     private String normalizeSchema(String schema) {
@@ -203,5 +272,11 @@ public class OceanBaseOracleDatasourcePlugin extends DataEaseDatasourcePlugin {
             return null;
         }
         return schema.toUpperCase(Locale.ROOT);
+    }
+
+    private void assertConnection(ConnectionObj connectionObj) {
+        if (connectionObj == null || connectionObj.getConnection() == null) {
+            DEException.throwException("数据库连接为空，请检查驱动、连接串和账号密码配置");
+        }
     }
 }
