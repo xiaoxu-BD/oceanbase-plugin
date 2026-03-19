@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>io.dataease.plugin</groupId>
-    <artifactId>oceanbase-oracle-backend</artifactId>
+    <artifactId>extensions-ds-oceanbase-oracle</artifactId>
     <version>2.10.20</version>
     <packaging>jar</packaging>
     <name>DataEase OceanBase Oracle Datasource Plugin</name>
@@ -59,35 +59,33 @@
                 <filtering>false</filtering>
             </resource>
         </resources>
-
-
         <plugins>
+            <!--
+              与 hive-backend 一致：将 frontend-package/dist 的 js 复制到
+              src/main/resources/static/de2api，最终进入插件 jar。
+            -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-resources-plugin</artifactId>
-                <version>3.3.1</version>
+                <artifactId>maven-antrun-plugin</artifactId>
                 <executions>
                     <execution>
-                        <id>copy-frontend-package-to-backend-jar</id>
-                        <phase>process-resources</phase>
-                        <goals>
-                            <goal>copy-resources</goal>
-                        </goals>
+                        <id>copy-front-2-back</id>
+                        <phase>generate-resources</phase>
                         <configuration>
-                            <outputDirectory>${project.build.outputDirectory}/component</outputDirectory>
-                            <resources>
-                                <resource>
-                                    <directory>${project.basedir}/../extensions-ds-oceanbase-oracle-frontend-package/src/component</directory>
-                                    <includes>
-                                        <include>**/*</include>
-                                    </includes>
-                                    <filtering>false</filtering>
-                                </resource>
-                            </resources>
-                            <overwrite>true</overwrite>
+                            <target>
+                                <copy todir="src/main/resources/static/de2api" failonerror="false">
+                                    <fileset dir="../extensions-ds-oceanbase-oracle-frontend-package/dist">
+                                        <include name="**.js"/>
+                                    </fileset>
+                                </copy>
+                            </target>
                         </configuration>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
                     </execution>
                 </executions>
             </plugin>
         </plugins>
-    </build></project>
+    </build>
+</project>
